@@ -1,0 +1,5 @@
+dist/
+build/
+*.map
+node_modules/
+.env
