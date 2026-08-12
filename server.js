@@ -17,12 +17,9 @@ function generateRoomCode() {
   return Math.random().toString(36).substring(2, 6).toUpperCase();
 }
 
-// Generate dynamic trivia question for a playing song
 function generateTrivia(song) {
   if (!song) return null;
   const artist = song.artist || 'this artist';
-  
-  // Sample pool of fun music trivia templates
   const questions = [
     {
       question: `Which hit track made ${artist} globally famous?`,
@@ -40,10 +37,7 @@ function generateTrivia(song) {
       correctIndex: 0
     }
   ];
-
-  // Pick a random question template
-  const template = questions[Math.floor(Math.random() * questions.length)];
-  return template;
+  return questions[Math.floor(Math.random() * questions.length)];
 }
 
 function reorderFairPlayQueue(queue) {
@@ -77,8 +71,7 @@ app.get('/api/search', async (req, res) => {
       title: v.title,
       videoId: v.id,
       thumbnail: v.thumbnail ? v.thumbnail.url : '',
-      artist: v.channel ? v.channel.name : 'Artist',
-      year: v.uploadedAt || '2020s'
+      artist: v.channel ? v.channel.name : 'Artist'
     }));
     res.json(videos);
   } catch (error) {
@@ -87,10 +80,13 @@ app.get('/api/search', async (req, res) => {
 });
 
 io.on('connection', (socket) => {
-  socket.on('create-room', async ({ mode }) => {
+  // Host Creates Room
+  socket.on('create-room', async ({ mode, hostName }) => {
     const roomId = generateRoomCode();
     const joinUrl = `http://localhost:3000/passenger.html?room=${roomId}`;
     const qrCodeData = await QRCode.toDataURL(joinUrl);
+
+    const driverName = hostName && hostName.trim() ? hostName.trim() : 'Driver (Host)';
 
     rooms[roomId] = { 
       queue: [], 
@@ -98,17 +94,22 @@ io.on('connection', (socket) => {
       currentTrivia: null,
       members: [],
       mode: mode || 'Road Trip',
-      skips: new Set()
+      skips: new Set(),
+      hostSocketId: socket.id
     };
     
     socket.join(roomId);
-    socket.emit('room-created', { roomId, mode: rooms[roomId].mode, qrCodeData });
+    socket.roomId = roomId;
+    socket.userName = driverName;
+
+    socket.emit('room-created', { roomId, mode: rooms[roomId].mode, qrCodeData, hostName: driverName });
   });
 
+  // Passenger Joins Room
   socket.on('join-room', ({ roomId, userName }) => {
     const code = roomId ? roomId.toUpperCase() : '';
     if (rooms[code]) {
-      const name = userName ? userName.trim() : 'Guest ' + Math.floor(Math.random() * 100);
+      const name = userName ? userName.trim() : 'Passenger ' + Math.floor(Math.random() * 100);
       rooms[code].members.push({ id: socket.id, name });
       socket.join(code);
       socket.roomId = code;
@@ -121,15 +122,17 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Add Song (Works for both Driver Host & Passengers!)
   socket.on('add-song', ({ roomId, song }) => {
     if (rooms[roomId]) {
+      const addedBy = socket.userName || 'Guest';
       const newSong = {
         id: Date.now().toString(),
         title: song.title,
         videoId: song.videoId,
         thumbnail: song.thumbnail,
         artist: song.artist || 'Artist',
-        addedBy: socket.userName || 'Guest',
+        addedBy: addedBy,
         votes: 1
       };
       
@@ -139,6 +142,7 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Upvote
   socket.on('upvote-song', ({ roomId, songId }) => {
     if (rooms[roomId]) {
       const song = rooms[roomId].queue.find(s => s.id === songId);
@@ -150,7 +154,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Verify Trivia Answer
+  // Submit Trivia
   socket.on('submit-trivia-answer', ({ roomId, selectedIndex }) => {
     if (rooms[roomId] && rooms[roomId].currentTrivia) {
       const isCorrect = selectedIndex === rooms[roomId].currentTrivia.correctIndex;
@@ -161,11 +165,12 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Democratic Skip Vote
   socket.on('vote-skip', ({ roomId }) => {
     if (rooms[roomId] && rooms[roomId].currentSong) {
       rooms[roomId].skips.add(socket.id);
       const skipCount = rooms[roomId].skips.size;
-      const totalMembers = rooms[roomId].members.length || 1;
+      const totalMembers = (rooms[roomId].members.length || 0) + 1; // Members + Host
       
       io.to(roomId).emit('skip-updated', { skipCount, totalMembers });
 
@@ -178,12 +183,14 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Reactions
   socket.on('send-reaction', ({ roomId, emoji }) => {
     if (rooms[roomId]) {
       io.to(roomId).emit('new-reaction', { emoji, sender: socket.userName });
     }
   });
 
+  // Next Track
   socket.on('song-ended', ({ roomId }) => {
     if (rooms[roomId]) {
       rooms[roomId].skips.clear();
@@ -209,5 +216,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`⚡ Auxi running with Live Trivia Game on http://localhost:${PORT}`);
+  console.log(`⚡ Auxi running on http://localhost:${PORT}`);
 });
