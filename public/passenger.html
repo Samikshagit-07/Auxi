@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Passenger - Auxi</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <style>
+    @keyframes floatUp {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-160px) scale(1.6); }
+    }
+    .floating-emoji {
+      position: absolute;
+      animation: floatUp 2.5s ease-out forwards;
+      pointer-events: none;
+      font-size: 2.2rem;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen p-4 max-w-lg mx-auto relative overflow-hidden font-sans pb-24">
+
+  <!-- Background Music Symbols -->
+  <div class="fixed top-12 -right-16 w-72 h-72 bg-indigo-600/20 rounded-full blur-[90px] pointer-events-none"></div>
+  <div class="fixed bottom-20 -left-16 w-72 h-72 bg-pink-600/20 rounded-full blur-[90px] pointer-events-none"></div>
+  <span class="fixed top-8 left-4 text-7xl text-indigo-400/15 blur-[1px] select-none pointer-events-none">🎵</span>
+  <span class="fixed top-1/2 right-4 text-8xl text-pink-400/15 blur-[2px] select-none pointer-events-none">🎶</span>
+  <span class="fixed bottom-12 left-8 text-7xl text-cyan-400/15 blur-[1px] select-none pointer-events-none">🎼</span>
+
+  <div id="emoji-container" class="fixed inset-0 pointer-events-none z-50"></div>
+  <div class="hidden"><div id="local-player"></div></div>
+
+  <div class="relative z-10 space-y-5">
+
+    <!-- Join Session Card -->
+    <div id="join-section" class="bg-slate-900/60 backdrop-blur-2xl p-6 rounded-3xl border border-white/10 space-y-4 text-center shadow-2xl">
+      <h2 class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300">Join Room Session</h2>
+      <input id="user-name" type="text" placeholder="Your Name (e.g. Rahul)" class="w-full p-3.5 bg-slate-950/80 border border-white/10 rounded-2xl text-sm focus:outline-none focus:border-indigo-500">
+      <input id="room-input" type="text" placeholder="Room Code (e.g. AUX1)" class="w-full p-3.5 bg-slate-950/80 border border-white/10 rounded-2xl text-center uppercase tracking-widest font-mono text-xl focus:outline-none focus:border-indigo-500">
+      <button onclick="joinRoom()" class="w-full py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 font-bold rounded-2xl shadow-lg shadow-indigo-600/30">Join Playlist</button>
+    </div>
+
+    <!-- Active Room Dashboard -->
+    <div id="room-section" class="hidden space-y-5">
+      
+      <div class="flex justify-between items-center bg-slate-900/60 backdrop-blur-xl p-4 rounded-2xl border border-white/10">
+        <div>
+          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Room Code</span>
+          <p id="active-code" class="font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-pink-400 text-xl tracking-widest">----</p>
+        </div>
+        
+        <button id="sync-btn" onclick="toggleSyncAudio()" class="px-3 py-1.5 bg-slate-800 text-slate-300 border border-white/10 rounded-xl text-xs font-bold">
+          🎧 Sync Audio: OFF
+        </button>
+      </div>
+
+      <!-- Skip Vote Bar -->
+      <div class="bg-slate-900/60 backdrop-blur-xl p-4 rounded-2xl border border-white/10 flex justify-between items-center">
+        <div>
+          <span class="text-xs font-bold text-slate-300">🚫 Skip Vote</span>
+          <p id="skip-status" class="text-[10px] text-slate-400">0/1 Voted to Skip</p>
+        </div>
+        <button onclick="voteSkip()" class="px-4 py-2 bg-red-600/30 border border-red-500/40 text-red-300 hover:bg-red-600 hover:text-white rounded-xl text-xs font-bold transition">
+          Vote Skip ⏭️
+        </button>
+      </div>
+
+      <!-- Live Music Trivia Quiz Card -->
+      <div id="trivia-card" class="hidden bg-gradient-to-r from-indigo-950/90 to-purple-950/90 p-5 rounded-3xl border border-indigo-500/40 space-y-3 shadow-2xl">
+        <span class="text-[10px] text-cyan-400 font-bold uppercase tracking-widest">🧠 Live Music Trivia</span>
+        <p id="trivia-question" class="text-sm text-slate-100 font-bold">Loading question...</p>
+        
+        <div id="trivia-options" class="grid grid-cols-2 gap-2 pt-1"></div>
+        <p id="trivia-feedback" class="text-xs font-bold text-center pt-2 hidden"></p>
+      </div>
+
+      <!-- Reactions -->
+      <div class="bg-slate-900/60 backdrop-blur-xl p-3 rounded-2xl border border-white/10 flex justify-around text-xl">
+        <button onclick="sendEmoji('🔥')" class="hover:scale-125 transition">🔥</button>
+        <button onclick="sendEmoji('❤️')" class="hover:scale-125 transition">❤️</button>
+        <button onclick="sendEmoji('🎧')" class="hover:scale-125 transition">🎧</button>
+        <button onclick="sendEmoji('🎉')" class="hover:scale-125 transition">🎉</button>
+        <button onclick="sendEmoji('💩')" class="hover:scale-125 transition">💩</button>
+      </div>
+
+      <!-- Search Box -->
+      <div class="bg-slate-900/60 backdrop-blur-2xl p-5 rounded-3xl border border-white/10 space-y-3 shadow-xl">
+        <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">🎵 Search & Queue Song</h3>
+        <div class="flex space-x-2">
+          <input id="search-query" type="text" placeholder="Type song or artist..." class="w-full p-3 bg-slate-950/80 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-indigo-500">
+          <button onclick="searchSong()" class="px-5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 font-bold text-xs rounded-xl shadow-md">Search</button>
+        </div>
+        <div id="search-results" class="space-y-2 mt-3"></div>
+      </div>
+
+      <!-- Live Queue -->
+      <div>
+        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">Fair-Play Queue</h4>
+        <ul id="passenger-queue" class="space-y-2"></ul>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const socket = io();
+    let joinedRoom = null;
+    let searchCache = [];
+    let localPlayer = null;
+    let isSyncEnabled = false;
+
+    window.onload = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const roomParam = urlParams.get('room');
+      if (roomParam) {
+        document.getElementById('room-input').value = roomParam;
+      }
+    };
+
+    function onYouTubeIframeAPIReady() {
+      localPlayer = new YT.Player('local-player', { height: '0', width: '0' });
+    }
+
+    function joinRoom() {
+      const name = document.getElementById('user-name').value.trim();
+      const code = document.getElementById('room-input').value.trim();
+      if (code) socket.emit('join-room', { roomId: code, userName: name });
+    }
+
+    socket.on('room-joined', ({ roomId, roomData }) => {
+      joinedRoom = roomId;
+      document.getElementById('join-section').classList.add('hidden');
+      document.getElementById('room-section').classList.remove('hidden');
+      document.getElementById('active-code').innerText = roomId;
+      renderPassengerQueue(roomData.queue);
+    });
+
+    socket.on('error-msg', (msg) => alert(msg));
+
+    function sendEmoji(emoji) {
+      if (joinedRoom) socket.emit('send-reaction', { roomId: joinedRoom, emoji });
+    }
+
+    socket.on('new-reaction', ({ emoji }) => spawnFloatingEmoji(emoji));
+
+    function spawnFloatingEmoji(emoji) {
+      const container = document.getElementById('emoji-container');
+      const el = document.createElement('div');
+      el.innerText = emoji;
+      el.className = 'floating-emoji';
+      el.style.left = `${Math.random() * 80 + 10}%`;
+      el.style.bottom = '20px';
+      container.appendChild(el);
+      setTimeout(() => el.remove(), 2500);
+    }
+
+    function voteSkip() {
+      if (joinedRoom) socket.emit('vote-skip', { roomId: joinedRoom });
+    }
+
+    socket.on('skip-updated', ({ skipCount, totalMembers }) => {
+      document.getElementById('skip-status').innerText = `${skipCount}/${Math.ceil(totalMembers / 2)} votes to auto-skip`;
+    });
+
+    function toggleSyncAudio() {
+      isSyncEnabled = !isSyncEnabled;
+      const btn = document.getElementById('sync-btn');
+      if (isSyncEnabled) {
+        btn.innerText = '🎧 Sync Audio: ON';
+        btn.className = 'px-3 py-1.5 bg-indigo-600 text-white border border-indigo-400 rounded-xl text-xs font-bold';
+      } else {
+        btn.innerText = '🎧 Sync Audio: OFF';
+        btn.className = 'px-3 py-1.5 bg-slate-800 text-slate-300 border border-white/10 rounded-xl text-xs font-bold';
+        if (localPlayer) localPlayer.stopVideo();
+      }
+    }
+
+    socket.on('play-next', (data) => {
+      renderPassengerQueue(data.queue);
+      
+      const triviaCard = document.getElementById('trivia-card');
+      const feedback = document.getElementById('trivia-feedback');
+      feedback.classList.add('hidden');
+
+      if (data.currentTrivia) {
+        triviaCard.classList.remove('hidden');
+        document.getElementById('trivia-question').innerText = data.currentTrivia.question;
+        
+        const optionsDiv = document.getElementById('trivia-options');
+        optionsDiv.innerHTML = data.currentTrivia.options.map((opt, idx) => `
+          <button onclick="submitTrivia(${idx})" class="p-2.5 bg-indigo-900/50 hover:bg-indigo-600 border border-indigo-500/30 rounded-xl text-xs font-medium text-left truncate transition">
+            ${opt}
+          </button>
+        `).join('');
+      } else {
+        triviaCard.classList.add('hidden');
+      }
+
+      if (isSyncEnabled && localPlayer && data.currentSong) {
+        localPlayer.loadVideoById(data.currentSong.videoId);
+      }
+    });
+
+    function submitTrivia(selectedIndex) {
+      if (joinedRoom) {
+        socket.emit('submit-trivia-answer', { roomId: joinedRoom, selectedIndex });
+      }
+    }
+
+    socket.on('trivia-result', ({ isCorrect, correctAnswer }) => {
+      const feedback = document.getElementById('trivia-feedback');
+      feedback.classList.remove('hidden');
+      if (isCorrect) {
+        feedback.innerText = "🎉 Right Answer! You know your music!";
+        feedback.className = "text-xs font-bold text-center pt-2 text-green-400";
+      } else {
+        feedback.innerText = `❌ Wrong Answer! Correct answer was: ${correctAnswer}`;
+        feedback.className = "text-xs font-bold text-center pt-2 text-red-400";
+      }
+    });
+
+    async function searchSong() {
+      const query = document.getElementById('search-query').value.trim();
+      if (!query) return;
+      const resultsDiv = document.getElementById('search-results');
+      resultsDiv.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">Searching songs...</p>`;
+      
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+        searchCache = await res.json();
+        if (!searchCache || searchCache.length === 0) {
+          resultsDiv.innerHTML = `<p class="text-xs text-slate-500 text-center py-2">No songs found.</p>`;
+          return;
+        }
+        resultsDiv.innerHTML = searchCache.map((s, index) => `
+          <div class="flex items-center justify-between bg-slate-950/90 p-2.5 rounded-xl border border-white/10">
+            <div class="flex items-center space-x-3 truncate">
+              ${s.thumbnail ? `<img src="${s.thumbnail}" class="w-10 h-10 rounded-lg object-cover">` : ''}
+              <div class="truncate">
+                <p class="font-medium text-xs text-white truncate">${s.title}</p>
+                <p class="text-[10px] text-indigo-300/70">${s.artist}</p>
+              </div>
+            </div>
+            <button onclick="addCachedSong(${index})" class="px-3 py-1.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-xs font-bold rounded-lg shadow">
+              + Queue
+            </button>
+          </div>
+        `).join('');
+      } catch (err) {
+        resultsDiv.innerHTML = `<p class="text-xs text-red-400 text-center py-2">Search failed. Try again.</p>`;
+      }
+    }
+
+    function addCachedSong(index) {
+      const song = searchCache[index];
+      if (joinedRoom && song) {
+        socket.emit('add-song', { 
+          roomId: joinedRoom, 
+          song: { title: song.title, videoId: song.videoId, thumbnail: song.thumbnail, artist: song.artist } 
+        });
+        document.getElementById('search-results').innerHTML = '';
+        document.getElementById('search-query').value = '';
+      }
+    }
+
+    function upvote(songId) {
+      if (joinedRoom) socket.emit('upvote-song', { roomId: joinedRoom, songId });
+    }
+
+    socket.on('queue-updated', (data) => renderPassengerQueue(data.queue));
+
+    function renderPassengerQueue(queue) {
+      const list = document.getElementById('passenger-queue');
+      if (!queue || queue.length === 0) {
+        list.innerHTML = `<li class="p-4 bg-slate-900/40 backdrop-blur-md rounded-2xl text-slate-500 text-sm text-center border border-white/5">Queue is empty</li>`;
+        return;
+      }
+      list.innerHTML = queue.map((song) => `
+        <li class="p-3 bg-slate-900/60 backdrop-blur-xl rounded-2xl flex justify-between items-center border border-white/10 shadow-lg">
+          <div class="flex items-center space-x-3 truncate">
+            ${song.thumbnail ? `<img src="${song.thumbnail}" class="w-10 h-10 rounded-lg object-cover">` : ''}
+            <div class="truncate">
+              <p class="font-medium text-sm text-slate-100 truncate">${song.title}</p>
+              <p class="text-xs text-indigo-300/70">By ${song.addedBy}</p>
+            </div>
+          </div>
+          <button onclick="upvote('${song.id}')" class="px-3.5 py-1.5 bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 font-bold text-xs rounded-xl hover:bg-indigo-600 hover:text-white transition">
+            👍 ${song.votes}
+          </button>
+        </li>
+      `).join('');
+    }
+  </script>
+</body>
+</html>

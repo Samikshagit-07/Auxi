@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Host Room - Auxi</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <style>
+    @keyframes floatUp {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-160px) scale(1.6); }
+    }
+    .floating-emoji {
+      position: absolute;
+      animation: floatUp 2.5s ease-out forwards;
+      pointer-events: none;
+      font-size: 2.2rem;
+    }
+    @keyframes eqBar {
+      0%, 100% { height: 4px; }
+      50% { height: 20px; }
+    }
+    .eq-bar { animation: eqBar 0.8s ease-in-out infinite; }
+    .eq-bar:nth-child(2) { animation-delay: 0.2s; }
+    .eq-bar:nth-child(3) { animation-delay: 0.4s; }
+    .eq-bar:nth-child(4) { animation-delay: 0.1s; }
+  </style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen p-4 max-w-lg mx-auto relative overflow-hidden font-sans">
+
+  <!-- Background Music Notes & Neon Glows -->
+  <div class="fixed top-10 -left-20 w-80 h-80 bg-indigo-600/20 rounded-full blur-[110px] pointer-events-none"></div>
+  <div class="fixed bottom-10 -right-20 w-80 h-80 bg-pink-600/20 rounded-full blur-[110px] pointer-events-none"></div>
+  <span class="fixed top-12 left-4 text-7xl text-indigo-400/15 blur-[1px] select-none pointer-events-none">🎵</span>
+  <span class="fixed top-1/3 -right-4 text-8xl text-pink-400/15 blur-[2px] select-none pointer-events-none">🎶</span>
+  <span class="fixed bottom-16 left-6 text-8xl text-cyan-400/15 blur-[2px] select-none pointer-events-none">🎧</span>
+  <span class="fixed bottom-10 right-8 text-7xl text-purple-400/15 blur-[1px] select-none pointer-events-none">🎼</span>
+
+  <div id="emoji-container" class="fixed inset-0 pointer-events-none z-50"></div>
+
+  <div class="relative z-10 space-y-5">
+    
+    <!-- Step 1: Mode Selector -->
+    <div id="create-card" class="bg-slate-900/70 backdrop-blur-2xl p-6 rounded-3xl border border-white/10 shadow-2xl space-y-4">
+      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Select Room Vibe</h2>
+      <div class="grid grid-cols-3 gap-2 text-xs">
+        <button onclick="setMode('🚗 Road Trip')" class="mode-btn active p-3 bg-indigo-600 border border-indigo-400 rounded-2xl font-bold">🚗 Road Trip</button>
+        <button onclick="setMode('🏠 House Party')" class="mode-btn p-3 bg-slate-800 border border-white/10 rounded-2xl font-bold">🏠 Party</button>
+        <button onclick="setMode('🌐 Long Distance')" class="mode-btn p-3 bg-slate-800 border border-white/10 rounded-2xl font-bold">🌐 Virtual</button>
+      </div>
+      <button onclick="createRoom()" class="w-full py-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 font-bold text-sm rounded-2xl shadow-lg shadow-indigo-600/30 border border-white/10">
+        Start Session
+      </button>
+    </div>
+
+    <!-- Step 2: Active Room Code Header + Scan QR -->
+    <div id="room-header" class="hidden bg-slate-900/60 backdrop-blur-2xl p-5 rounded-3xl border border-white/10 shadow-xl flex justify-between items-center">
+      <div>
+        <span id="active-mode-tag" class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">---</span>
+        <h2 id="room-code" class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-pink-400 to-cyan-400 tracking-widest">---</h2>
+        <div id="member-count" class="text-xs bg-indigo-500/20 text-indigo-300 font-bold px-3 py-1 rounded-full border border-indigo-500/30 inline-block mt-2">0 Joined</div>
+      </div>
+      
+      <div class="text-center">
+        <img id="qr-code-img" class="w-20 h-20 rounded-xl border border-white/20 p-1 bg-white shadow-lg">
+        <span class="text-[9px] text-slate-400 font-bold uppercase block mt-1">Scan to Join</span>
+      </div>
+    </div>
+
+    <!-- Live Joined Members -->
+    <div id="members-card" class="hidden bg-slate-900/50 backdrop-blur-xl p-4 rounded-2xl border border-white/5">
+      <div id="members-list" class="flex flex-wrap gap-2 text-xs">
+        <span class="text-slate-500 text-xs">Scan QR or enter code to join...</span>
+      </div>
+    </div>
+
+    <div class="hidden"><div id="player"></div></div>
+
+    <!-- Now Playing Glass Card + Equalizer Bar -->
+    <div id="player-card" class="hidden bg-slate-900/70 backdrop-blur-2xl p-6 rounded-3xl border border-white/10 text-center space-y-4 shadow-2xl">
+      <div class="flex justify-center items-center space-x-2">
+        <!-- Equalizer Bars -->
+        <div class="flex items-end space-x-1 h-5">
+          <div class="w-1 bg-pink-500 rounded-full eq-bar"></div>
+          <div class="w-1 bg-indigo-400 rounded-full eq-bar"></div>
+          <div class="w-1 bg-cyan-400 rounded-full eq-bar"></div>
+          <div class="w-1 bg-purple-500 rounded-full eq-bar"></div>
+        </div>
+        <span class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">⚡ Now Playing</span>
+      </div>
+
+      <div>
+        <h3 id="now-playing" class="text-lg font-bold truncate text-slate-100">No active track</h3>
+        <p id="added-by" class="text-xs text-indigo-300/70 font-medium"></p>
+      </div>
+
+      <div class="flex justify-center items-center space-x-4 pt-2 border-t border-white/5">
+        <button onclick="toggleMute()" id="mute-btn" class="p-3 bg-slate-800/80 text-slate-300 rounded-2xl border border-white/10 text-sm">🔊</button>
+        <button onclick="togglePlayPause()" id="play-btn" class="p-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white rounded-2xl shadow-lg border border-white/10 text-lg font-bold">⏸️ Pause</button>
+        <button onclick="skipSong()" class="p-3 bg-slate-800/80 text-slate-300 rounded-2xl border border-white/10 text-sm font-bold">⏭️ Skip</button>
+      </div>
+    </div>
+
+    <!-- Live Queue -->
+    <div>
+      <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">Fair-Play Queue</h4>
+      <ul id="queue-list" class="space-y-2">
+        <li class="p-4 bg-slate-900/40 backdrop-blur-md rounded-2xl text-slate-500 text-sm text-center border border-white/5">Queue is empty</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    const socket = io();
+    let currentRoom = null;
+    let selectedMode = '🚗 Road Trip';
+    let ytPlayer = null;
+    let isPlaying = false;
+    let isMuted = false;
+
+    function setMode(mode) {
+      selectedMode = mode;
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.remove('bg-indigo-600', 'border-indigo-400');
+        btn.classList.add('bg-slate-800', 'border-white/10');
+      });
+      event.target.classList.add('bg-indigo-600', 'border-indigo-400');
+    }
+
+    function onYouTubeIframeAPIReady() {
+      ytPlayer = new YT.Player('player', {
+        height: '0', width: '0',
+        events: { 'onStateChange': onPlayerStateChange }
+      });
+    }
+
+    function createRoom() {
+      socket.emit('create-room', { mode: selectedMode });
+    }
+
+    socket.on('room-created', ({ roomId, mode, qrCodeData }) => {
+      currentRoom = roomId;
+      document.getElementById('create-card').classList.add('hidden');
+      document.getElementById('room-header').classList.remove('hidden');
+      document.getElementById('members-card').classList.remove('hidden');
+      document.getElementById('player-card').classList.remove('hidden');
+      document.getElementById('room-code').innerText = roomId;
+      document.getElementById('active-mode-tag').innerText = mode;
+      document.getElementById('qr-code-img').src = qrCodeData;
+    });
+
+    socket.on('members-updated', ({ members }) => {
+      document.getElementById('member-count').innerText = `${members.length} Joined`;
+      const list = document.getElementById('members-list');
+      if (members.length === 0) {
+        list.innerHTML = `<span class="text-slate-500 text-xs">Scan QR or enter code to join...</span>`;
+      } else {
+        list.innerHTML = members.map(m => `
+          <span class="bg-slate-800/80 border border-white/10 text-slate-200 px-3 py-1 rounded-full text-xs font-medium">👤 ${m.name}</span>
+        `).join('');
+      }
+    });
+
+    socket.on('new-reaction', ({ emoji }) => spawnFloatingEmoji(emoji));
+
+    function spawnFloatingEmoji(emoji) {
+      const container = document.getElementById('emoji-container');
+      const el = document.createElement('div');
+      el.innerText = emoji;
+      el.className = 'floating-emoji';
+      el.style.left = `${Math.random() * 80 + 10}%`;
+      el.style.bottom = '20px';
+      container.appendChild(el);
+      setTimeout(() => el.remove(), 2500);
+    }
+
+    socket.on('queue-updated', (data) => {
+      renderQueue(data.queue);
+      if (!data.currentSong && data.queue.length > 0) {
+        socket.emit('song-ended', { roomId: currentRoom });
+      }
+    });
+
+    socket.on('play-next', (data) => {
+      renderQueue(data.queue);
+      if (data.currentSong) {
+        document.getElementById('now-playing').innerText = data.currentSong.title;
+        document.getElementById('added-by').innerText = `Queued by ${data.currentSong.addedBy || 'Guest'}`;
+        ytPlayer.loadVideoById(data.currentSong.videoId);
+        isPlaying = true;
+        document.getElementById('play-btn').innerText = '⏸️ Pause';
+      } else {
+        document.getElementById('now-playing').innerText = "No active track";
+        document.getElementById('added-by').innerText = "";
+        isPlaying = false;
+        document.getElementById('play-btn').innerText = '▶️ Play';
+      }
+    });
+
+    function togglePlayPause() {
+      if (!ytPlayer) return;
+      if (isPlaying) {
+        ytPlayer.pauseVideo();
+        isPlaying = false;
+        document.getElementById('play-btn').innerText = '▶️ Play';
+      } else {
+        ytPlayer.playVideo();
+        isPlaying = true;
+        document.getElementById('play-btn').innerText = '⏸️ Pause';
+      }
+    }
+
+    function toggleMute() {
+      if (!ytPlayer) return;
+      if (isMuted) {
+        ytPlayer.unMute();
+        isMuted = false;
+        document.getElementById('mute-btn').innerText = '🔊';
+      } else {
+        ytPlayer.mute();
+        isMuted = true;
+        document.getElementById('mute-btn').innerText = '🔇';
+      }
+    }
+
+    function skipSong() {
+      if (currentRoom) socket.emit('song-ended', { roomId: currentRoom });
+    }
+
+    function onPlayerStateChange(event) {
+      if (event.data === 0 && currentRoom) {
+        socket.emit('song-ended', { roomId: currentRoom });
+      }
+    }
+
+    function renderQueue(queue) {
+      const list = document.getElementById('queue-list');
+      if (!queue || queue.length === 0) {
+        list.innerHTML = `<li class="p-4 bg-slate-900/40 backdrop-blur-md rounded-2xl text-slate-500 text-sm text-center border border-white/5">Queue is empty</li>`;
+        return;
+      }
+      list.innerHTML = queue.map((song) => `
+        <li class="p-3 bg-slate-900/60 backdrop-blur-xl rounded-2xl flex items-center justify-between border border-white/10 shadow-lg">
+          <div class="flex items-center space-x-3 truncate">
+            ${song.thumbnail ? `<img src="${song.thumbnail}" class="w-11 h-11 rounded-xl object-cover border border-white/10">` : ''}
+            <div class="truncate">
+              <p class="font-medium text-sm text-slate-100 truncate">${song.title}</p>
+              <p class="text-[11px] text-indigo-300/70">By ${song.addedBy}</p>
+            </div>
+          </div>
+          <span class="text-xs font-bold bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full border border-indigo-500/30">🔥 ${song.votes}</span>
+        </li>
+      `).join('');
+    }
+  </script>
+</body>
+</html>
