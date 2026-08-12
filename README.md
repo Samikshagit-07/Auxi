@@ -52,34 +52,48 @@ auxi/
 ├── package.json          # Dependencies & Scripts
 └── README.md             # Project Documentation
 
+
+
+
+
+
+
+
+
+
+
 🚀 Local Development Setup
+
 Prerequisites
+
 Node.js (v16 or higher)
 Git
 
 Installation Steps
 
 Clone the repository:
-git clone [https://github.com/Samikshagit-07/Auxi.git](https://github.com/Samikshagit-07/Auxi.git)
+git clone https://github.com/Samikshagit-07/Auxi.git
 cd Auxi
 
 Install dependencies:
 npm install
 
+
 Start the development server:
 node server.js
+
 
 Open in Browser:
 Host / Driver Dashboard: http://localhost:3000/host.html
 Passenger Join Screen: http://localhost:3000/passenger.html
 
+
 🌐 Live Deployment
 The application is deployed live on Render:
-
 🔗 Live Link: https://auxi.onrender.com
 
 👥 Contributor
-Samiksha R Singi — Lead Developer & Creator 
+Samiksha R Singi — Lead Developer & Creator (GitHub Profile)
 
 📄 License
 This project is open-source under the MIT License.
