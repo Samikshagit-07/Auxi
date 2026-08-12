@@ -41,7 +41,6 @@
     <!-- Active Room Dashboard Section -->
     <div id="room-section" class="hidden space-y-6">
       
-      <!-- Top Header Controls -->
       <div class="flex flex-col md:flex-row justify-between items-center bg-slate-900/60 backdrop-blur-xl p-5 rounded-3xl border border-white/10 gap-4">
         <div class="flex items-center space-x-4">
           <div>
@@ -64,10 +63,8 @@
       <!-- MAIN PASSENGER HORIZONTAL GRID -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        <!-- LEFT COLUMN: TRIVIA & REACTIONS (5 cols) -->
         <div class="lg:col-span-5 space-y-6">
           
-          <!-- Live Music Trivia Quiz Card -->
           <div id="trivia-card" class="hidden bg-gradient-to-r from-indigo-950/90 to-purple-950/90 p-6 rounded-3xl border border-indigo-500/40 space-y-4 shadow-2xl">
             <span class="text-xs text-cyan-400 font-bold uppercase tracking-widest">🧠 Live Music Trivia</span>
             <p id="trivia-question" class="text-base text-slate-100 font-bold leading-snug">Loading question...</p>
@@ -75,7 +72,6 @@
             <p id="trivia-feedback" class="text-xs font-bold text-center pt-2 hidden"></p>
           </div>
 
-          <!-- Reactions Card -->
           <div class="bg-slate-900/60 backdrop-blur-xl p-5 rounded-3xl border border-white/10 flex justify-around text-2xl shadow-xl">
             <button onclick="sendEmoji('🔥')" class="hover:scale-125 transition">🔥</button>
             <button onclick="sendEmoji('❤️')" class="hover:scale-125 transition">❤️</button>
@@ -86,10 +82,8 @@
 
         </div>
 
-        <!-- RIGHT COLUMN: PRESETS, SEARCH & QUEUE (7 cols) -->
         <div class="lg:col-span-7 space-y-6">
           
-          <!-- Ready Preset Playlists -->
           <div class="bg-slate-900/60 backdrop-blur-2xl p-6 rounded-3xl border border-white/10 space-y-4 shadow-xl">
             <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">🔥 Ready Playlists (1-Tap Add)</h3>
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
@@ -111,7 +105,6 @@
             </div>
           </div>
 
-          <!-- Search Box -->
           <div class="bg-slate-900/60 backdrop-blur-2xl p-6 rounded-3xl border border-white/10 space-y-3 shadow-xl">
             <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">🎵 Search & Queue Song</h3>
             <div class="flex space-x-3">
@@ -121,7 +114,6 @@
             <div id="search-results" class="space-y-2 mt-3"></div>
           </div>
 
-          <!-- Live Queue -->
           <div class="space-y-3">
             <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Fair-Play Queue</h4>
             <ul id="passenger-queue" class="space-y-2"></ul>
@@ -144,9 +136,18 @@
 
     window.onload = () => {
       const urlParams = new URLSearchParams(window.location.search);
-      const roomParam = urlParams.get('room');
+      const roomParam = urlParams.get('room') || sessionStorage.getItem('auxi_passenger_room');
+      const savedName = sessionStorage.getItem('auxi_passenger_name');
+
       if (roomParam) {
         document.getElementById('room-input').value = roomParam;
+      }
+      if (savedName) {
+        document.getElementById('user-name').value = savedName;
+      }
+
+      if (roomParam && savedName) {
+        socket.emit('join-room', { roomId: roomParam, userName: savedName });
       }
     };
 
@@ -162,6 +163,9 @@
 
     socket.on('room-joined', ({ roomId, roomData }) => {
       joinedRoom = roomId;
+      sessionStorage.setItem('auxi_passenger_room', roomId);
+      sessionStorage.setItem('auxi_passenger_name', document.getElementById('user-name').value);
+
       document.getElementById('join-section').classList.add('hidden');
       document.getElementById('room-section').classList.remove('hidden');
       document.getElementById('active-code').innerText = roomId;
@@ -213,6 +217,17 @@
         if (localPlayer) localPlayer.stopVideo();
       }
     }
+
+    // SYNC PAUSE / PLAY EVENT LISTENER
+    socket.on('sync-playback-state', ({ state }) => {
+      if (isSyncEnabled && localPlayer) {
+        if (state === 'pause') {
+          localPlayer.pauseVideo();
+        } else if (state === 'play') {
+          localPlayer.playVideo();
+        }
+      }
+    });
 
     socket.on('play-next', (data) => {
       renderPassengerQueue(data.queue);

@@ -133,8 +133,6 @@ app.get('/api/search', async (req, res) => {
 io.on('connection', (socket) => {
   socket.on('create-room', async ({ mode, hostName }) => {
     const roomId = generateRoomCode();
-    
-    // DYNAMIC PRODUCTION URL FOR QR CODE
     const baseUrl = process.env.RENDER_EXTERNAL_URL || 'https://auxi.onrender.com';
     const joinUrl = `${baseUrl}/passenger.html?room=${roomId}`;
     const qrCodeData = await QRCode.toDataURL(joinUrl);
@@ -148,7 +146,8 @@ io.on('connection', (socket) => {
       members: [],
       mode: mode || 'Road Trip',
       skips: new Set(),
-      hostSocketId: socket.id
+      hostSocketId: socket.id,
+      isPlaying: false
     };
     
     socket.join(roomId);
@@ -156,6 +155,24 @@ io.on('connection', (socket) => {
     socket.userName = driverName;
 
     socket.emit('room-created', { roomId, mode: rooms[roomId].mode, qrCodeData, hostName: driverName });
+  });
+
+  socket.on('rejoin-host-room', async ({ roomId, hostName, mode }) => {
+    if (rooms[roomId]) {
+      const baseUrl = process.env.RENDER_EXTERNAL_URL || 'https://auxi.onrender.com';
+      const joinUrl = `${baseUrl}/passenger.html?room=${roomId}`;
+      const qrCodeData = await QRCode.toDataURL(joinUrl);
+
+      socket.join(roomId);
+      socket.roomId = roomId;
+      socket.userName = hostName || 'Driver (Host)';
+      rooms[roomId].hostSocketId = socket.id;
+
+      socket.emit('room-created', { roomId, mode: rooms[roomId].mode, qrCodeData, hostName: socket.userName });
+      io.to(roomId).emit('queue-updated', rooms[roomId]);
+    } else {
+      socket.emit('error-msg', 'Session expired. Please create a new room.');
+    }
   });
 
   socket.on('join-room', ({ roomId, userName }) => {
@@ -220,8 +237,17 @@ io.on('connection', (socket) => {
       if (!rooms[roomId].currentSong && rooms[roomId].queue.length > 0) {
         rooms[roomId].currentSong = rooms[roomId].queue.shift();
         rooms[roomId].currentTrivia = generateTrivia(rooms[roomId].currentSong);
+        rooms[roomId].isPlaying = true;
         io.to(roomId).emit('play-next', rooms[roomId]);
       }
+    }
+  });
+
+  // REAL-TIME PLAYBACK SYNC (PAUSE/PLAY Across All Phones)
+  socket.on('player-state-change', ({ roomId, state }) => {
+    if (rooms[roomId]) {
+      rooms[roomId].isPlaying = (state === 'play');
+      io.to(roomId).emit('sync-playback-state', { state });
     }
   });
 
@@ -282,9 +308,11 @@ io.on('connection', (socket) => {
       if (rooms[roomId].queue.length > 0) {
         rooms[roomId].currentSong = rooms[roomId].queue.shift();
         rooms[roomId].currentTrivia = generateTrivia(rooms[roomId].currentSong);
+        rooms[roomId].isPlaying = true;
       } else {
         rooms[roomId].currentSong = null;
         rooms[roomId].currentTrivia = null;
+        rooms[roomId].isPlaying = false;
       }
       io.to(roomId).emit('play-next', rooms[roomId]);
     }
@@ -301,5 +329,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`⚡ Auxi running with Dynamic Live QR on http://localhost:${PORT}`);
+  console.log(`⚡ Auxi running with Playback Sync on http://localhost:${PORT}`);
 });
