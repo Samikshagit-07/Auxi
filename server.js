@@ -13,6 +13,40 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const rooms = {};
 
+// Ready-to-Play Curated Playlists Data (Including Sandalwood!)
+const PRESET_PLAYLISTS = {
+  bollywood: [
+    { title: "Kesariya - Brahmastra", videoId: "BddP6PYo2gs", artist: "Arijit Singh", thumbnail: "https://i.ytimg.com/vi/BddP6PYo2gs/hqdefault.jpg" },
+    { title: "Apna Bana Le - Bhediya", videoId: "ElZfdU54Cp8", artist: "Arijit Singh", thumbnail: "https://i.ytimg.com/vi/ElZfdU54Cp8/hqdefault.jpg" },
+    { title: "Chaleya - Jawan", videoId: "VAdGW7QDJiU", artist: "Arijit Singh, Shilpa Rao", thumbnail: "https://i.ytimg.com/vi/VAdGW7QDJiU/hqdefault.jpg" },
+    { title: "Raataan Lambiyan - Shershaah", videoId: "gvyUuxdRdR4", artist: "Jubin Nautiyal", thumbnail: "https://i.ytimg.com/vi/gvyUuxdRdR4/hqdefault.jpg" }
+  ],
+  sandalwood: [
+    { title: "Ra Ra Rakkamma - Vikrant Rona", videoId: "n_S1I1mE8I4", artist: "Nakash Aziz, Sunidhi Chauhan", thumbnail: "https://i.ytimg.com/vi/n_S1I1mE8I4/hqdefault.jpg" },
+    { title: "Singara Siriye - Kantara", videoId: "z23Y01m8_jM", artist: "Vijay Prakash, Ananya Bhat", thumbnail: "https://i.ytimg.com/vi/z23Y01m8_jM/hqdefault.jpg" },
+    { title: "Sulthana - KGF Chapter 2", videoId: "e9A1e2tV10E", artist: "Ravi Basrur", thumbnail: "https://i.ytimg.com/vi/e9A1e2tV10E/hqdefault.jpg" },
+    { title: "Belageddu - Kirik Party", videoId: "ebXbLfL2i4Y", artist: "Vijay Prakash", thumbnail: "https://i.ytimg.com/vi/ebXbLfL2i4Y/hqdefault.jpg" }
+  ],
+  party: [
+    { title: "Tauba Tauba - Bad Newz", videoId: "LK7-_dgAVOI", artist: "Karan Aujla", thumbnail: "https://i.ytimg.com/vi/LK7-_dgAVOI/hqdefault.jpg" },
+    { title: "Kala Chashma - Baar Baar Dekho", videoId: "k4yXQkG2s1E", artist: "Badshah, Neha Kakkar", thumbnail: "https://i.ytimg.com/vi/k4yXQkG2s1E/hqdefault.jpg" },
+    { title: "Ghalti Se Mistake - Jagga Jasoos", videoId: "0-7IHOXkiV8", artist: "Pritam, Arijit Singh", thumbnail: "https://i.ytimg.com/vi/0-7IHOXkiV8/hqdefault.jpg" },
+    { title: "Abhi Toh Party Shuru Hui Hai", videoId: "89J3N2m335M", artist: "Badshah", thumbnail: "https://i.ytimg.com/vi/89J3N2m335M/hqdefault.jpg" }
+  ],
+  tollywood: [
+    { title: "Naatu Naatu - RRR", videoId: "sAzlWScHTc4", artist: "Rahul Sipligunj, Kaala Bhairava", thumbnail: "https://i.ytimg.com/vi/sAzlWScHTc4/hqdefault.jpg" },
+    { title: "Oo Antava - Pushpa", videoId: "1q_4L2xM0-s", artist: "Indravathi Chauhan", thumbnail: "https://i.ytimg.com/vi/1q_4L2xM0-s/hqdefault.jpg" },
+    { title: "Ramuloo Ramulaa - Ala Vaikunthapurramuloo", videoId: "2P8p4c10H0k", artist: "Anurag Kulkarni", thumbnail: "https://i.ytimg.com/vi/2P8p4c10H0k/hqdefault.jpg" },
+    { title: "Halamithi Habibo - Beast", videoId: "gZa3Y_4a37A", artist: "Anirudh Ravichander", thumbnail: "https://i.ytimg.com/vi/gZa3Y_4a37A/hqdefault.jpg" }
+  ],
+  hollywood: [
+    { title: "Blinding Lights - The Weeknd", videoId: "4NRXx6U8ABQ", artist: "The Weeknd", thumbnail: "https://i.ytimg.com/vi/4NRXx6U8ABQ/hqdefault.jpg" },
+    { title: "Shape of You - Ed Sheeran", videoId: "JGwWNGJdvx8", artist: "Ed Sheeran", thumbnail: "https://i.ytimg.com/vi/JGwWNGJdvx8/hqdefault.jpg" },
+    { title: "Levitating - Dua Lipa", videoId: "TUVcZfQe-Kw", artist: "Dua Lipa", thumbnail: "https://i.ytimg.com/vi/TUVcZfQe-Kw/hqdefault.jpg" },
+    { title: "As It Was - Harry Styles", videoId: "H5v3kku4y6Q", artist: "Harry Styles", thumbnail: "https://i.ytimg.com/vi/H5v3kku4y6Q/hqdefault.jpg" }
+  ]
+};
+
 function generateRoomCode() {
   return Math.random().toString(36).substring(2, 6).toUpperCase();
 }
@@ -62,7 +96,6 @@ function reorderFairPlayQueue(queue) {
   return reordered;
 }
 
-// Robust Search Endpoint with Fallbacks
 app.get('/api/search', async (req, res) => {
   const query = req.query.q;
   if (!query) return res.json([]);
@@ -80,9 +113,7 @@ app.get('/api/search', async (req, res) => {
     }
     throw new Error('No results from youtube-sr');
   } catch (error) {
-    console.error('Primary Search Error, using Invidious API Fallback:', error.message);
     try {
-      // Public Invidious API Fallback for IP blocks
       const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
       const response = await fetch(`https://inv.riverside.rocks/api/v1/search?q=${encodeURIComponent(query)}&type=video`);
       const data = await response.json();
@@ -94,7 +125,6 @@ app.get('/api/search', async (req, res) => {
       }));
       return res.json(fallbackVideos);
     } catch (fallbackError) {
-      console.error('Fallback Error:', fallbackError.message);
       return res.status(500).json({ error: 'Search failed' });
     }
   }
@@ -155,6 +185,28 @@ io.on('connection', (socket) => {
       };
       
       rooms[roomId].queue.push(newSong);
+      rooms[roomId].queue = reorderFairPlayQueue(rooms[roomId].queue);
+      io.to(roomId).emit('queue-updated', rooms[roomId]);
+    }
+  });
+
+  socket.on('add-preset-playlist', ({ roomId, playlistKey }) => {
+    if (rooms[roomId] && PRESET_PLAYLISTS[playlistKey]) {
+      const addedBy = socket.userName || 'Guest';
+      const tracks = PRESET_PLAYLISTS[playlistKey];
+
+      tracks.forEach((song, index) => {
+        rooms[roomId].queue.push({
+          id: (Date.now() + index).toString(),
+          title: song.title,
+          videoId: song.videoId,
+          thumbnail: song.thumbnail,
+          artist: song.artist,
+          addedBy: `${addedBy} (${playlistKey.toUpperCase()})`,
+          votes: 1
+        });
+      });
+
       rooms[roomId].queue = reorderFairPlayQueue(rooms[roomId].queue);
       io.to(roomId).emit('queue-updated', rooms[roomId]);
     }
@@ -229,5 +281,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`⚡ Auxi running on http://localhost:${PORT}`);
+  console.log(`⚡ Auxi running with Sandalwood & Presets on http://localhost:${PORT}`);
 });
