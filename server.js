@@ -62,25 +62,45 @@ function reorderFairPlayQueue(queue) {
   return reordered;
 }
 
+// Robust Search Endpoint with Fallbacks
 app.get('/api/search', async (req, res) => {
   const query = req.query.q;
   if (!query) return res.json([]);
+  
   try {
     const results = await YouTube.search(query, { limit: 5, type: 'video' });
-    const videos = results.map(v => ({
-      title: v.title,
-      videoId: v.id,
-      thumbnail: v.thumbnail ? v.thumbnail.url : '',
-      artist: v.channel ? v.channel.name : 'Artist'
-    }));
-    res.json(videos);
+    if (results && results.length > 0) {
+      const videos = results.map(v => ({
+        title: v.title || 'Unknown Track',
+        videoId: v.id,
+        thumbnail: v.thumbnail ? v.thumbnail.url : '',
+        artist: v.channel ? v.channel.name : 'Artist'
+      }));
+      return res.json(videos);
+    }
+    throw new Error('No results from youtube-sr');
   } catch (error) {
-    res.status(500).json({ error: 'Search failed' });
+    console.error('Primary Search Error, using Invidious API Fallback:', error.message);
+    try {
+      // Public Invidious API Fallback for IP blocks
+      const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+      const response = await fetch(`https://inv.riverside.rocks/api/v1/search?q=${encodeURIComponent(query)}&type=video`);
+      const data = await response.json();
+      const fallbackVideos = data.slice(0, 5).map(v => ({
+        title: v.title,
+        videoId: v.videoId,
+        thumbnail: v.videoThumbnails && v.videoThumbnails[0] ? v.videoThumbnails[0].url : '',
+        artist: v.author || 'Artist'
+      }));
+      return res.json(fallbackVideos);
+    } catch (fallbackError) {
+      console.error('Fallback Error:', fallbackError.message);
+      return res.status(500).json({ error: 'Search failed' });
+    }
   }
 });
 
 io.on('connection', (socket) => {
-  // Host Creates Room
   socket.on('create-room', async ({ mode, hostName }) => {
     const roomId = generateRoomCode();
     const joinUrl = `http://localhost:3000/passenger.html?room=${roomId}`;
@@ -105,7 +125,6 @@ io.on('connection', (socket) => {
     socket.emit('room-created', { roomId, mode: rooms[roomId].mode, qrCodeData, hostName: driverName });
   });
 
-  // Passenger Joins Room
   socket.on('join-room', ({ roomId, userName }) => {
     const code = roomId ? roomId.toUpperCase() : '';
     if (rooms[code]) {
@@ -122,7 +141,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Add Song (Works for both Driver Host & Passengers!)
   socket.on('add-song', ({ roomId, song }) => {
     if (rooms[roomId]) {
       const addedBy = socket.userName || 'Guest';
@@ -142,7 +160,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Upvote
   socket.on('upvote-song', ({ roomId, songId }) => {
     if (rooms[roomId]) {
       const song = rooms[roomId].queue.find(s => s.id === songId);
@@ -154,7 +171,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Submit Trivia
   socket.on('submit-trivia-answer', ({ roomId, selectedIndex }) => {
     if (rooms[roomId] && rooms[roomId].currentTrivia) {
       const isCorrect = selectedIndex === rooms[roomId].currentTrivia.correctIndex;
@@ -165,12 +181,11 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Democratic Skip Vote
   socket.on('vote-skip', ({ roomId }) => {
     if (rooms[roomId] && rooms[roomId].currentSong) {
       rooms[roomId].skips.add(socket.id);
       const skipCount = rooms[roomId].skips.size;
-      const totalMembers = (rooms[roomId].members.length || 0) + 1; // Members + Host
+      const totalMembers = (rooms[roomId].members.length || 0) + 1;
       
       io.to(roomId).emit('skip-updated', { skipCount, totalMembers });
 
@@ -183,14 +198,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Reactions
   socket.on('send-reaction', ({ roomId, emoji }) => {
     if (rooms[roomId]) {
       io.to(roomId).emit('new-reaction', { emoji, sender: socket.userName });
     }
   });
 
-  // Next Track
   socket.on('song-ended', ({ roomId }) => {
     if (rooms[roomId]) {
       rooms[roomId].skips.clear();
