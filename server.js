@@ -13,7 +13,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const rooms = {};
 
-// Ready-to-Play Curated Playlists Data (Including Sandalwood!)
+// Curated Preset Playlists
 const PRESET_PLAYLISTS = {
   bollywood: [
     { title: "Kesariya - Brahmastra", videoId: "BddP6PYo2gs", artist: "Arijit Singh", thumbnail: "https://i.ytimg.com/vi/BddP6PYo2gs/hqdefault.jpg" },
@@ -190,10 +190,16 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('add-preset-playlist', ({ roomId, playlistKey }) => {
+  // Dynamic Switch: Replace or Append Preset Playlist
+  socket.on('switch-preset-playlist', ({ roomId, playlistKey, mode }) => {
     if (rooms[roomId] && PRESET_PLAYLISTS[playlistKey]) {
       const addedBy = socket.userName || 'Guest';
       const tracks = PRESET_PLAYLISTS[playlistKey];
+
+      // Mode "replace" clears existing queue for smooth genre switching
+      if (mode === 'replace') {
+        rooms[roomId].queue = [];
+      }
 
       tracks.forEach((song, index) => {
         rooms[roomId].queue.push({
@@ -208,6 +214,21 @@ io.on('connection', (socket) => {
       });
 
       rooms[roomId].queue = reorderFairPlayQueue(rooms[roomId].queue);
+      io.to(roomId).emit('queue-updated', rooms[roomId]);
+
+      // Auto start playing new playlist if nothing is playing right now
+      if (!rooms[roomId].currentSong && rooms[roomId].queue.length > 0) {
+        rooms[roomId].currentSong = rooms[roomId].queue.shift();
+        rooms[roomId].currentTrivia = generateTrivia(rooms[roomId].currentSong);
+        io.to(roomId).emit('play-next', rooms[roomId]);
+      }
+    }
+  });
+
+  // Manual Clear Queue Control
+  socket.on('clear-queue', ({ roomId }) => {
+    if (rooms[roomId]) {
+      rooms[roomId].queue = [];
       io.to(roomId).emit('queue-updated', rooms[roomId]);
     }
   });
@@ -281,5 +302,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`⚡ Auxi running with Sandalwood & Presets on http://localhost:${PORT}`);
+  console.log(`⚡ Auxi running with Playlist Switcher on http://localhost:${PORT}`);
 });

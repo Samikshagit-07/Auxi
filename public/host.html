@@ -37,7 +37,7 @@
 
   <div class="relative z-10 space-y-5">
     
-    <!-- Step 1: Mode & Driver Setup -->
+    <!-- Step 1: Driver Setup -->
     <div id="create-card" class="bg-slate-900/70 backdrop-blur-2xl p-6 rounded-3xl border border-white/10 shadow-2xl space-y-4">
       <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Driver / Host Setup</h2>
       <input id="host-name-input" type="text" placeholder="Driver Name (e.g. Samiksha / Host)" class="w-full p-3.5 bg-slate-950/80 border border-white/10 rounded-2xl text-sm focus:outline-none focus:border-indigo-500">
@@ -56,7 +56,7 @@
       </button>
     </div>
 
-    <!-- Active Room Code Header -->
+    <!-- Header -->
     <div id="room-header" class="hidden bg-slate-900/60 backdrop-blur-2xl p-5 rounded-3xl border border-white/10 shadow-xl flex justify-between items-center">
       <div>
         <span id="active-mode-tag" class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">---</span>
@@ -103,29 +103,35 @@
       </div>
     </div>
 
-    <!-- Ready Playlists Section on Host Screen -->
-    <div id="host-preset-card" class="hidden bg-slate-900/60 backdrop-blur-2xl p-4 rounded-3xl border border-white/10 space-y-2 shadow-xl">
-      <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">🔥 Ready Playlists (1-Tap Add)</h3>
+    <!-- Ready Playlists with Instant Switcher Mode -->
+    <div id="host-preset-card" class="hidden bg-slate-900/60 backdrop-blur-2xl p-4 rounded-3xl border border-white/10 space-y-3 shadow-xl">
+      <div class="flex justify-between items-center">
+        <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">🔥 Switch Vibe Playlist</h3>
+        <button onclick="toggleSwitchMode()" id="switch-mode-btn" class="text-[10px] font-bold px-2.5 py-1 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-lg">
+          🔄 Mode: Replace Queue
+        </button>
+      </div>
+
       <div class="grid grid-cols-2 gap-2 text-xs">
-        <button onclick="addPreset('bollywood')" class="p-3 bg-gradient-to-r from-amber-600/80 to-orange-600/80 hover:scale-105 border border-amber-400/30 rounded-2xl font-bold text-left shadow transition">
+        <button onclick="switchPreset('bollywood')" class="p-3 bg-gradient-to-r from-amber-600/80 to-orange-600/80 hover:scale-105 border border-amber-400/30 rounded-2xl font-bold text-left shadow transition">
           🎬 Bollywood Hits
         </button>
-        <button onclick="addPreset('sandalwood')" class="p-3 bg-gradient-to-r from-emerald-600/80 to-teal-600/80 hover:scale-105 border border-emerald-400/30 rounded-2xl font-bold text-left shadow transition">
+        <button onclick="switchPreset('sandalwood')" class="p-3 bg-gradient-to-r from-emerald-600/80 to-teal-600/80 hover:scale-105 border border-emerald-400/30 rounded-2xl font-bold text-left shadow transition">
           🌲 Sandalwood Beats
         </button>
-        <button onclick="addPreset('party')" class="p-3 bg-gradient-to-r from-purple-600/80 to-pink-600/80 hover:scale-105 border border-pink-400/30 rounded-2xl font-bold text-left shadow transition">
+        <button onclick="switchPreset('party')" class="p-3 bg-gradient-to-r from-purple-600/80 to-pink-600/80 hover:scale-105 border border-pink-400/30 rounded-2xl font-bold text-left shadow transition">
           🎉 Party Melodies
         </button>
-        <button onclick="addPreset('tollywood')" class="p-3 bg-gradient-to-r from-red-600/80 to-rose-600/80 hover:scale-105 border border-red-400/30 rounded-2xl font-bold text-left shadow transition">
+        <button onclick="switchPreset('tollywood')" class="p-3 bg-gradient-to-r from-red-600/80 to-rose-600/80 hover:scale-105 border border-red-400/30 rounded-2xl font-bold text-left shadow transition">
           🔥 Tollywood Hits
         </button>
-        <button onclick="addPreset('hollywood')" class="col-span-2 p-3 bg-gradient-to-r from-cyan-600/80 to-blue-600/80 hover:scale-105 border border-cyan-400/30 rounded-2xl font-bold text-center shadow transition">
+        <button onclick="switchPreset('hollywood')" class="col-span-2 p-3 bg-gradient-to-r from-cyan-600/80 to-blue-600/80 hover:scale-105 border border-cyan-400/30 rounded-2xl font-bold text-center shadow transition">
           🎧 Hollywood Pop Hits
         </button>
       </div>
     </div>
 
-    <!-- DRIVER/HOST SONG SEARCH BOX -->
+    <!-- Search Box -->
     <div id="host-search-card" class="hidden bg-slate-900/60 backdrop-blur-2xl p-5 rounded-3xl border border-white/10 space-y-3 shadow-xl">
       <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">🎵 Search Song</h3>
       <div class="flex space-x-2">
@@ -135,7 +141,7 @@
       <div id="search-results" class="space-y-2 mt-3"></div>
     </div>
 
-    <!-- Live Reactions Bar for Host -->
+    <!-- Reactions -->
     <div id="host-reactions" class="hidden bg-slate-900/60 backdrop-blur-xl p-3 rounded-2xl border border-white/10 flex justify-around text-xl">
       <button onclick="sendEmoji('🔥')" class="hover:scale-125 transition">🔥</button>
       <button onclick="sendEmoji('❤️')" class="hover:scale-125 transition">❤️</button>
@@ -144,9 +150,14 @@
       <button onclick="sendEmoji('💩')" class="hover:scale-125 transition">💩</button>
     </div>
 
-    <!-- Live Queue -->
-    <div id="host-queue-card" class="hidden">
-      <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">Car Queue</h4>
+    <!-- Live Queue + Clear Control -->
+    <div id="host-queue-card" class="hidden space-y-2">
+      <div class="flex justify-between items-center px-1">
+        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Car Queue</h4>
+        <button onclick="clearQueue()" class="text-[10px] font-bold px-3 py-1 bg-red-600/20 text-red-300 border border-red-500/30 hover:bg-red-600 hover:text-white rounded-lg transition">
+          🗑️ Clear Queue
+        </button>
+      </div>
       <ul id="queue-list" class="space-y-2">
         <li class="p-4 bg-slate-900/40 backdrop-blur-md rounded-2xl text-slate-500 text-sm text-center border border-white/5">Queue is empty</li>
       </ul>
@@ -161,6 +172,7 @@
     let isPlaying = false;
     let isMuted = false;
     let searchCache = [];
+    let switchMode = 'replace'; // 'replace' or 'append'
 
     function setMode(mode) {
       selectedMode = mode;
@@ -169,6 +181,31 @@
         btn.classList.add('bg-slate-800', 'border-white/10');
       });
       event.target.classList.add('bg-indigo-600', 'border-indigo-400');
+    }
+
+    function toggleSwitchMode() {
+      const btn = document.getElementById('switch-mode-btn');
+      if (switchMode === 'replace') {
+        switchMode = 'append';
+        btn.innerText = '➕ Mode: Append Queue';
+        btn.className = 'text-[10px] font-bold px-2.5 py-1 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-lg';
+      } else {
+        switchMode = 'replace';
+        btn.innerText = '🔄 Mode: Replace Queue';
+        btn.className = 'text-[10px] font-bold px-2.5 py-1 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-lg';
+      }
+    }
+
+    function switchPreset(playlistKey) {
+      if (currentRoom) {
+        socket.emit('switch-preset-playlist', { roomId: currentRoom, playlistKey, mode: switchMode });
+      }
+    }
+
+    function clearQueue() {
+      if (currentRoom && confirm("Are you sure you want to clear the upcoming queue?")) {
+        socket.emit('clear-queue', { roomId: currentRoom });
+      }
     }
 
     function onYouTubeIframeAPIReady() {
@@ -210,12 +247,6 @@
         `).join('');
       }
     });
-
-    function addPreset(playlistKey) {
-      if (currentRoom) {
-        socket.emit('add-preset-playlist', { roomId: currentRoom, playlistKey });
-      }
-    }
 
     function sendEmoji(emoji) {
       if (currentRoom) socket.emit('send-reaction', { roomId: currentRoom, emoji });
