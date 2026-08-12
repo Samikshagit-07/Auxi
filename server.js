@@ -133,7 +133,10 @@ app.get('/api/search', async (req, res) => {
 io.on('connection', (socket) => {
   socket.on('create-room', async ({ mode, hostName }) => {
     const roomId = generateRoomCode();
-    const joinUrl = `http://localhost:3000/passenger.html?room=${roomId}`;
+    
+    // DYNAMIC PRODUCTION URL FOR QR CODE
+    const baseUrl = process.env.RENDER_EXTERNAL_URL || 'https://auxi.onrender.com';
+    const joinUrl = `${baseUrl}/passenger.html?room=${roomId}`;
     const qrCodeData = await QRCode.toDataURL(joinUrl);
 
     const driverName = hostName && hostName.trim() ? hostName.trim() : 'Driver (Host)';
@@ -190,13 +193,11 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Dynamic Switch: Replace or Append Preset Playlist
   socket.on('switch-preset-playlist', ({ roomId, playlistKey, mode }) => {
     if (rooms[roomId] && PRESET_PLAYLISTS[playlistKey]) {
       const addedBy = socket.userName || 'Guest';
       const tracks = PRESET_PLAYLISTS[playlistKey];
 
-      // Mode "replace" clears existing queue for smooth genre switching
       if (mode === 'replace') {
         rooms[roomId].queue = [];
       }
@@ -216,7 +217,6 @@ io.on('connection', (socket) => {
       rooms[roomId].queue = reorderFairPlayQueue(rooms[roomId].queue);
       io.to(roomId).emit('queue-updated', rooms[roomId]);
 
-      // Auto start playing new playlist if nothing is playing right now
       if (!rooms[roomId].currentSong && rooms[roomId].queue.length > 0) {
         rooms[roomId].currentSong = rooms[roomId].queue.shift();
         rooms[roomId].currentTrivia = generateTrivia(rooms[roomId].currentSong);
@@ -225,7 +225,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Manual Clear Queue Control
   socket.on('clear-queue', ({ roomId }) => {
     if (rooms[roomId]) {
       rooms[roomId].queue = [];
@@ -302,5 +301,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`⚡ Auxi running with Playlist Switcher on http://localhost:${PORT}`);
+  console.log(`⚡ Auxi running with Dynamic Live QR on http://localhost:${PORT}`);
 });
